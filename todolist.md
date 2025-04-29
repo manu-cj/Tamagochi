@@ -8,8 +8,7 @@
 
 ## 🧠 Modèle (model)
 - [x] Créer `Lubullule.java` avec ses attributs (faim, énergie, humeur, etc.)
-- [x] Créer `Etat.java` (Enum ou classe) pour gérer les différents états
-- [ ] Ajouter les méthodes : `manger()`, `jouer()`, `dormir()`, `mettreAJourEtat()`
+- [x] Ajouter les méthodes : `manger()`, `jouer()`, `dormir()`, `mettreAJourEtat()`
 
 ## 🎮 Logique de jeu (service)
 - [ ] Créer `GameLogic.java` pour gérer l’évolution de l’état dans le temps

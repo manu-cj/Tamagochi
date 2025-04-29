@@ -1,21 +1,22 @@
 package tamagochi.model;
 
+
+
 public class Creature {
     private String name;
     private int age;
     private int health;
-    private int hunger;
+    private float hunger;
     private int happiness;
     private int stamina;
     private boolean sleep;
     private boolean isFatigued;
     private boolean isHungry;
     private boolean isSad;
-    private boolean isHunger;
     private boolean isDead;
     private boolean damageThreadStarted;
-    private boolean etatThreadStarted;
-    
+    private boolean stateThreadStarted;
+    private String message;
 
 
     public Creature(String name) {
@@ -29,10 +30,10 @@ public class Creature {
         this.isFatigued = false;
         this.isHungry = false;
         this.isSad = false;
-        this.isHunger = false;
         this.isDead = false;
         this.damageThreadStarted = false;
-        this.etatThreadStarted = false;
+        this.stateThreadStarted = false;
+        this.message = "";
     }
 
     public String getName() {
@@ -47,7 +48,7 @@ public class Creature {
         return health;
     }
 
-    public int getHunger() {
+    public float getHunger() {
         return hunger;
     }
 
@@ -75,12 +76,12 @@ public class Creature {
         return isSad;
     }
 
-    public boolean isHunger() {
-        return isHunger;
-    }
 
     public boolean isDead() {
         return isDead;
+    }
+    public String getMessage() {
+        return message;
     }
 
     public void eat() {
@@ -91,37 +92,53 @@ public class Creature {
         happiness = Math.min(100, happiness + 5);
         health = Math.min(100, health + 15);
         stamina = Math.min(100, stamina + 20);
-        System.out.println(name + " a mangé et se sent mieux !");
+        message = name + " a mangé et se sent mieux !";
+        updateState();
     }
 
 
     public void play() {
-        happiness = Math.min(100, stamina + 15);
-        hunger = Math.min(100, hunger + 10);
+        happiness = Math.min(100, happiness + 15);
+        hunger = Math.min(100, hunger + 8);
         stamina = Math.max(0, stamina - 10);
+        message = name + " a joué";
+        updateState();
         if (stamina == 0) {
-            System.out.println(name + " est trop fatigué pour jouer davantage.");
+            message = name + " est trop fatigué pour jouer davantage.";
         }
     }
 
-    // sleep 10 second for regen stamina
+    // sleep 10 seconds for regen stamina
     public void sleep() {
+        if (sleep) {
+            message = name + " dort déjà.";
+            return;
+        }
         sleep = true;
         new Thread(() -> {
             while (sleep) {
-            try {
-                Thread.sleep(1000); 
-                stamina = Math.min(100, stamina + 10); 
-                health = Math.min(100, health + 1);
-                hunger = Math.min(100, hunger + 3);
-                if (stamina >= 100) {
-                    sleep = false;
-                    System.out.println(name + " s'est bien reposé.");
+                try {
+                    Thread.sleep(1000);
+                    stamina = Math.min(100, stamina + 1);
+                    health = Math.min(100, health + 1);
+                    hunger = Math.min(100, hunger + 0.6f);
+                    if (!sleep) {
+                        message = name + " n'est pas content d'avoir été réveiller.";
+                    }
+
+                    message = name + " est entrain de dormir...";
+
+                    updateState();
+                    if (stamina >= 100) {
+                        sleep = false;
+                        message = name + " s'est bien reposé.";
+                        updateState();
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    message = "Le sommeil de " + name + " a été interrompu";
+                    System.out.println("Le sommeil de " + name + " a été interrompu : " + e.getMessage());
                 }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                System.out.println("Le sommeil de " + name + " a été interrompu.");
-            }
             }
         }).start();
     }
@@ -130,89 +147,69 @@ public class Creature {
         if (sleep) {
             sleep = false;
             happiness = Math.max(0, happiness - 10);
-            System.out.println(name + " s'est réveillé.");
+            updateState();
+            
         } else {
-            System.out.println(name + " n'est pas en train de dormir.");
+            message = name + " n'est pas en train de dormir.";
         }
     }
 
     public void updateState() {
         System.out.println("État actuel : faim=" + hunger + ", énergie=" + stamina + ", bonheur=" + happiness);
     
-        
-    
         if (health == 0 && !isDead) {
             isDead = true;
-            System.out.println(name + " est mort.");
+            message = name + " est mort.";
         }
 
-        if (!isDead && !etatThreadStarted) {
-            changeEtatOverTime();
-            etatThreadStarted = true;
+        if (!isDead && !stateThreadStarted) {
+            degradeStates();
+            stateThreadStarted = true;
         }
     
         if (!isDead && !damageThreadStarted) {
-            startDamageOverTime();
+            applyDamageOverTime();
             damageThreadStarted = true;
         }
 
     }
 
-    private void changeEtatOverTime() {
-        new Thread( () -> {
-            while (!isDead) {
-                try {
-                    Thread.sleep(5000);
-
-                    happiness = Math.max(0, -1);
-                    hunger = Math.max(0, -1);
-                    stamina = Math.max(0, -1);
-                    
-                    isSad = happiness < 20;
-                    isHungry = hunger > 80;
-                    isFatigued = stamina < 20;                   
+    public void degradeStates() {
+        if (!isDead) {
+            happiness = Math.max(0, happiness - 1);
+            hunger = Math.min(100, hunger + 1);
+            stamina = Math.max(0, stamina - 1);
     
-                    if (health == 0) {
-                        isDead = true;
-                        System.out.println(name + " est mort à cause des dégâts cumulés.");
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    System.out.println("Le mécanisme de changement d'états sur la durée a été interrompu.");
-                }
-            }
-        });
+            // Update critical states
+            isSad = happiness < 20;
+            isHungry = hunger > 80;
+            isFatigued = stamina < 20;
+    
+            System.out.println(name + " -> faim=" + hunger + ", énergie=" + stamina + ", bonheur=" + happiness + ", health=" + health);
+        }
     }
     
-    private void startDamageOverTime() {
-        new Thread(() -> {
-            while (!isDead) {
-                try {
-                    Thread.sleep(5000);
-    
-                    if (isSad) {
-                        health = Math.max(0, health - 2);
-                        System.out.println(name + " perd de la santé à cause de la tristesse.");
-                    }
-                    if (isHungry) {
-                        health = Math.max(0, health - 3);
-                        System.out.println(name + " perd de la santé à cause de la faim.");
-                    }
-                    if (isFatigued) {
-                        health = Math.max(0, health - 1);
-                        System.out.println(name + " perd de la santé à cause de la fatigue.");
-                    }
-    
-                    if (health == 0) {
-                        isDead = true;
-                        System.out.println(name + " est mort à cause des dégâts cumulés.");
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    System.out.println("Le mécanisme de dégâts sur la durée a été interrompu.");
-                }
+    //apply damage for each states
+    public void applyDamageOverTime() {
+        if (!isDead) {
+            if (isSad) {
+                health = Math.max(0, health - 1);
+                message = name + " perd de la santé à cause de la tristesse.";
             }
-        }).start();
+            if (isHungry) {
+                health = Math.max(0, health - 1);
+                message = name + " perd de la santé à cause de la faim.";
+            }
+            if (isFatigued) {
+                health = Math.max(0, health - 1);
+                message = name + " perd de la santé à cause de la fatigue.";
+            }
+    
+            if (health == 0) {
+                isDead = true;
+                message = name + " est mort à cause des dégâts cumulés.";
+            }
+        }
     }
  
 }
